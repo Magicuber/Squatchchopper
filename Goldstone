@@ -1,0 +1,31 @@
+# Goldstone
+
+import time
+import Adafruit_BBIO.PWM as PWM
+low = 0
+rang = 0
+
+def initialize(lowS=200, highS=250):
+    PWM.start("P9_14", 10, 200)
+    PWM.start("P9_21", 10, 200)
+    PWM.start("P9_42", 10, 200)
+    PWM.start("P8_13", 10, 200)
+    low = lowS
+    rang = highS-low
+
+def val(x):
+    x = min(1.0,max(x,0.0))
+    return (x*rang)+low
+
+def setSpeeds(a,b,c,d):
+    PWM.set_duty_cycle("P9_14", val(a))
+    PWM.set_duty_cycle("P9_21", val(b))
+    PWM.set_duty_cycle("P9_42", val(c))
+    PWM.set_duty_cycle("P8_13", val(d))
+
+def kill():
+    x1 = 150
+    PWM.set_duty_cycle("P9_14", x1)
+    PWM.set_duty_cycle("P9_21", x1)
+    PWM.set_duty_cycle("P9_42", x1)
+    PWM.set_duty_cycle("P8_13", x1)
