@@ -1,0 +1,105 @@
+# Sapphire
+# @author Adam
+
+print(' _______ _______  _____   _____  _ 	_ _____  ______ _______')
+print(' |______ |_____| |_____] |_____] |_____|   |   |_____/ |______')
+print(' ______| | 	| |   	|   	| 	| __|__ |	\_ |______')
+print('')
+
+import time
+import math
+from vec3 import *
+import harlequin as imu
+import goldstone as motors
+import socket
+
+s = socket.socket()
+host = '192.168.1.17'
+port = 12345
+s.bind((host, port))
+s.listen(5)
+while True:
+    	c, addr = s.accept()
+    	print 'Connection formed with', addr
+    	while True:
+            	time.sleep(1)
+            	print(c.recv(2048))
+    	c.close()
+
+gyro_importance = 0.9
+calibration_time = 1.0
+
+starting_time = time.time()
+a_r = vec3(0.0, 0.0, 0.0)
+g_r = vec3(0.0, 0.0, 0.0)
+
+drift_iterations = 0.0
+gyro_drift = vec3(0.0, 0.0, 0.0)
+a_r_0 = vec3(0.0, 0.0, 0.0)
+drift_start_time = time.time()
+while(time.time() - drift_start_time < calibration_time):
+    	gyro_drift += vec3(imu.Gx(), imu.Gy(), imu.Gz())
+    	a_r_0 += vec3(imu.Ax(), imu.Ay(), imu.Az())
+    	drift_iterations += 1.0
+gyro_drift /= drift_iterations
+a_r_0 /= drift_iterations
+a_r_0_a = vec3(math.atan2(a_r_0.y, a_r_0.z), math.atan2(-a_r_0.x, a_r_0.z), 0.0)
+print('Estimated gyro drift at [' + str(gyro_drift.x) + ' ' + str(gyro_drift.y) + ' ' + str(gyro_drift.z) + ']')
+print('Estimated neutral position at [' + str(a_r_0.x) + ' ' + str(a_r_0.y) + ' ' + str(a_r_0.z) + ']')
+
+motors.initialize()
+
+m_a = 0.0
+m_b = 0.0
+m_c = 0.0
+m_d = 0.0
+
+yawCorrectionCoefficent = 0.0
+XYCorrectionCoefficent = 0.4
+
+throttle = 0.3
+netthrottle = 0.0
+
+#motors.setSpeeds(-0.1, -0.1, -0.1, -0.1)
+print("Sleeping")
+time.sleep(2)
+print("Starting")
+motors.setSpeeds(0.1, 0.1, 0.1, 0.1)
+
+cyclesPassed = 0
+angle = vec3(0.0, 0.0, 0.0)
+previous_time = time.time()
+while True:
+    	current_time = time.time()
+    	deltaT = current_time-previous_time
+    	previous_time = current_time
+    	a_r = vec3(imu.Ax(), imu.Ay(), imu.Az())
+    	a_r_length = a_r * a_r
+    	a_r *= 1.0/a_r_length
+    	g_r = vec3(imu.Gx(), imu.Gy(), imu.Gz())
+    	angleRotationApprox = vec3(math.atan2(a_r.y, a_r.z), math.atan2(-a_r.x, a_r.z), 0.0) - a_r_0_a
+    	angle = gyro_importance*(deltaT*(g_r - gyro_drift) + angle) + (1.0 - gyro_importance) * angleRotationApprox
+
+    	yawF = -g_r.z
+
+    	m_a = throttle + yawF*yawCorrectionCoefficent - angle.y*XYCorrectionCoefficent
+    	m_b = throttle - yawF*yawCorrectionCoefficent - angle.x*XYCorrectionCoefficent
+    	m_c = throttle + yawF*yawCorrectionCoefficent + angle.y*XYCorrectionCoefficent
+    	m_d = throttle - yawF*yawCorrectionCoefficent + angle.x*XYCorrectionCoefficent
+
+    	m_a *= netthrottle
+    	m_b *= netthrottle
+    	m_c *= netthrottle
+    	m_d *= netthrottle
+
+    	pval = (0, 0, 0, 0)
+    	pval = motors.setSpeeds(m_a, m_b, m_c, m_d)
+    	#pval = motors.setSpeeds(a, a, a, a)
+
+    	if(cyclesPassed % 30 == 0):
+            	print('\nGYRO_ANGLE_APPROX: ' + str(angle.x) + ' ' + str(angle.y))
+            	print('MOTOR_SPEEDS:  	' + str(m_a) + ' ' + str(m_b) + ' ' + str(m_c) + ' ' + str(m_d))
+            	print(pval)
+    	cyclesPassed += 1
+
+
