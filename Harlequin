@@ -1,0 +1,47 @@
+# Harlequin
+
+from Adafruit_I2C import Adafruit_I2C
+from time import sleep
+import time
+
+
+# Initialize i2c connection to MPU6050
+# i2c address is 0x68
+i2c = Adafruit_I2C(0x68)
+
+# Wake up the device (out of sleep mode)
+# Bit 6 on register 0x6B set to 0
+i2c.write8(0x6B, 0)
+
+def getG(address):
+    	b = i2c.readS8(address)
+    	s = i2c.readU8(address+1)
+    	raw = b * 256 + s
+    	g = raw / 16384.
+    	return g
+    
+def getRaw(address):
+    	b = i2c.readS8(address)
+    	s = i2c.readU8(address+1)
+    	raw = b * 256 + s
+    	g = raw*0.00013323124
+    	return g
+
+def Ax():
+    return getG(0x3b)
+def Ay():
+   return getG(0x3d)
+def Az():
+    return getG(0x3f)
+
+def temp():
+    return getRaw(0x41)
+
+def Gx():
+    return getRaw(0x43)
+def Gy():
+    return getRaw(0x45)
+def Gz():
+    return getRaw(0x47)
+
+
